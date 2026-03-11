@@ -1,60 +1,112 @@
-import axios from "axios";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
-
-const api = axios.create({ baseURL: API_BASE });
-
-api.interceptors.request.use((config) => {
+//cliente base 
+const getHeaders = () => {
   const token = localStorage.getItem("gear_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
 
-api.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem("gear_token");
-      window.location.href = "/login";
-    }
-    return Promise.reject(err);
+const handleResponse = async (res) => {
+  if (res.status === 401) {
+    localStorage.removeItem("gear_token");
+    window.location.href = "/login";
+    return;
   }
-);
+  if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+  return res.status === 204 ? null : res.json();
+};
 
+export const api = {
+  get: async (endpoint) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        headers: getHeaders(),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.error("Error API GET:", error);
+      throw error;
+    }
+  },
+
+  post: async (endpoint, body) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.error("Error API POST:", error);
+      throw error;
+    }
+  },
+
+  put: async (endpoint, body) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.error("Error API PUT:", error);
+      throw error;
+    }
+  },
+
+  delete: async (endpoint) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.error("Error API DELETE:", error);
+      throw error;
+    }
+  },
+};
+
+//aqui van las apis por dominio es decir las funciones que llaman a api.get/post/put/delete con los endpoints de cada recurso
 export const authAPI = {
-  login: (data) => api.post("/auth/login", data),
+  login:    (data) => api.post("/auth/login",    data),
   register: (data) => api.post("/auth/register", data),
 };
 
 export const candidatosAPI = {
-  getAll: () => api.get("/candidatos"),
-  getById: (id) => api.get(`/candidatos/${id}`),
-  create: (data) => api.post("/candidatos", data),
-  update: (id, data) => api.put(`/candidatos/${id}`, data),
-  remove: (id) => api.delete(`/candidatos/${id}`),
+  getAll:  ()           => api.get("/candidatos"),
+  getById: (id)         => api.get(`/candidatos/${id}`),
+  create:  (data)       => api.post("/candidatos", data),
+  update:  (id, data)   => api.put(`/candidatos/${id}`, data),
+  remove:  (id)         => api.delete(`/candidatos/${id}`),
 };
 
 export const vacantesAPI = {
-  getAll: () => api.get("/vacantes"),
-  getById: (id) => api.get(`/vacantes/${id}`),
-  create: (data) => api.post("/vacantes", data),
-  update: (id, data) => api.put(`/vacantes/${id}`, data),
-  remove: (id) => api.delete(`/vacantes/${id}`),
+  getAll:  ()           => api.get("/vacantes"),
+  getById: (id)         => api.get(`/vacantes/${id}`),
+  create:  (data)       => api.post("/vacantes", data),
+  update:  (id, data)   => api.put(`/vacantes/${id}`, data),
+  remove:  (id)         => api.delete(`/vacantes/${id}`),
 };
 
 export const postulacionesAPI = {
-  getAll: () => api.get("/postulaciones"),
-  create: (data) => api.post("/postulaciones", data),
+  getAll:  ()     => api.get("/postulaciones"),
+  create:  (data) => api.post("/postulaciones", data),
 };
 
 export const evaluacionesAPI = {
-  getAll: () => api.get("/evaluaciones"),
-  create: (data) => api.post("/evaluaciones", data),
+  getAll:  ()     => api.get("/evaluaciones"),
+  create:  (data) => api.post("/evaluaciones", data),
 };
 
 export const entrevistasAPI = {
-  getAll: () => api.get("/entrevistas"),
-  create: (data) => api.post("/entrevistas", data),
+  getAll:  ()     => api.get("/entrevistas"),
+  create:  (data) => api.post("/entrevistas", data),
 };
-
-export default api;

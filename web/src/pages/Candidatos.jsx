@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import Table from "../components/Table";
 
@@ -44,11 +43,9 @@ export default function Candidatos() {
   const columns = ["Nombre", "Email", "Teléfono", "Experiencia", "Estado", "Acciones"];
 
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        <Navbar title="Candidatos" />
-        <div style={{ padding: "1.5rem 0" }}>
+    <>
+      <Navbar title="Candidatos" />
+      <div style={{ padding: "1.5rem 0" }}>
           <div className="page-header">
             <h2>Gestión de Candidatos</h2>
             <button className="btn btn-primary" onClick={openCreate}>+ Nuevo Candidato</button>
@@ -72,7 +69,6 @@ export default function Candidatos() {
               )}
             />
           </div>
-        </div>
       </div>
 
       {modal && (
@@ -109,6 +105,6 @@ export default function Candidatos() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

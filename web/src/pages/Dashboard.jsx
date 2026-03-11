@@ -1,4 +1,3 @@
-import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import Card from "../components/Card";
 
@@ -14,11 +13,9 @@ const actividad = [
 
 export default function Dashboard() {
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        <Navbar title="Dashboard" />
-        <div style={{ padding: "1.5rem 0" }}>
+    <>
+      <Navbar title="Dashboard" />
+      <div style={{ padding: "1.5rem 0" }}>
           <div className="card-grid">
             <Card title="Total Candidatos" value={METRICS.candidatos} color="#1a2b4b" />
             <Card title="Vacantes Activas" value={METRICS.vacantes} color="#3b82f6" />
@@ -65,8 +62,7 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        </div>
       </div>
-    </div>
+    </>
   );
 }

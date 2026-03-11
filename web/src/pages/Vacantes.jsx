@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import Table from "../components/Table";
 
@@ -44,11 +43,9 @@ export default function Vacantes() {
   const columns = ["Puesto", "Departamento", "Salario", "Estado", "Acciones"];
 
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        <Navbar title="Vacantes" />
-        <div style={{ padding: "1.5rem 0" }}>
+    <>
+      <Navbar title="Vacantes" />
+      <div style={{ padding: "1.5rem 0" }}>
           <div className="page-header">
             <h2>Gestión de Vacantes</h2>
             <button className="btn btn-primary" onClick={openCreate}>+ Nueva Vacante</button>
@@ -71,7 +68,6 @@ export default function Vacantes() {
               )}
             />
           </div>
-        </div>
       </div>
 
       {modal && (
@@ -104,6 +100,6 @@ export default function Vacantes() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

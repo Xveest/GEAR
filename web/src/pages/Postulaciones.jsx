@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import Table from "../components/Table";
 
@@ -56,11 +55,9 @@ export default function Postulaciones() {
   const columns = ["Candidato", "Vacante", "Fecha", "Estado"];
 
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        <Navbar title="Postulaciones" />
-        <div style={{ padding: "1.5rem 0" }}>
+    <>
+      <Navbar title="Postulaciones" />
+      <div style={{ padding: "1.5rem 0" }}>
           <div className="page-header">
             <h2>Gestión de Postulaciones</h2>
             <button className="btn btn-primary" onClick={() => setModal(true)}>+ Nueva Postulación</button>
@@ -79,7 +76,6 @@ export default function Postulaciones() {
               )}
             />
           </div>
-        </div>
       </div>
 
       {modal && (
@@ -122,7 +118,7 @@ export default function Postulaciones() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
