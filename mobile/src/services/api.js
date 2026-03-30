@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const API_URL = "http://192.168.0.3:4000/api";
+export const API_URL = "https://gear-backend-n5v3.onrender.com/api";
 
 const getHeaders = async () => {
   const token = await AsyncStorage.getItem("gear_token");
