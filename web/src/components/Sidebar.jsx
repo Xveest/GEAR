@@ -30,21 +30,30 @@ const IconLogout = () => (
   </svg>
 );
 
+const ALL_WEB_ROLES = ["admin", "recursos_humanos", "reclutador"];
+
 const navItems = [
-  { to: "/", label: "Dashboard", icon: <IconDashboard />, exact: true },
-  { to: "/candidatos", label: "Candidatos", icon: <IconCandidatos /> },
-  { to: "/vacantes", label: "Vacantes", icon: <IconVacantes /> },
-  { to: "/postulaciones", label: "Postulaciones", icon: <IconPostulaciones /> },
+  { to: "/", label: "Dashboard", icon: <IconDashboard />, exact: true, roles: ALL_WEB_ROLES },
+  { to: "/candidatos", label: "Candidatos", icon: <IconCandidatos />, roles: ALL_WEB_ROLES },
+  { to: "/vacantes", label: "Vacantes", icon: <IconVacantes />, roles: ALL_WEB_ROLES },
+  { to: "/postulaciones", label: "Postulaciones", icon: <IconPostulaciones />, roles: ALL_WEB_ROLES },
+  { to: "/comparativo", label: "Comparativo GEAR", icon: <IconDashboard />, roles: ALL_WEB_ROLES },
 ];
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  // Obtener rol del usuario actual
+  const user = JSON.parse(localStorage.getItem("gear_user") || "{}");
+  const userRole = user.rol || "reclutador";
 
   const logout = () => {
     localStorage.removeItem("gear_token");
     localStorage.removeItem("gear_user");
     navigate("/login");
   };
+
+  // Filtrar las opciones del menú según el rol
+  const allowedNavItems = navItems.filter(item => item.roles.includes(userRole));
 
   return (
     <aside className="sidebar">
@@ -53,7 +62,7 @@ export default function Sidebar() {
         <p>Reclutamiento Ejecutivo</p>
       </div>
       <nav className="sidebar-nav">
-        {navItems.map(({ to, label, icon, exact }) => (
+        {allowedNavItems.map(({ to, label, icon, exact }) => (
           <NavLink
             key={to}
             to={to}

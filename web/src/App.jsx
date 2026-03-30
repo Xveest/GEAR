@@ -8,6 +8,7 @@ import Candidatos from "./pages/Candidatos";
 import Vacantes from "./pages/Vacantes";
 import Postulaciones from "./pages/Postulaciones";
 import Perfil from "./pages/Perfil";
+import DashboardComparativo from "./pages/DashboardComparativo";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
                 <Route path="/candidatos" element={<Candidatos />} />
                 <Route path="/vacantes" element={<Vacantes />} />
                 <Route path="/postulaciones" element={<Postulaciones />} />
+                <Route path="/comparativo" element={<DashboardComparativo />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>

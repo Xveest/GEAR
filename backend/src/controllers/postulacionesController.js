@@ -14,4 +14,11 @@ const create = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAll, create };
+const update = async (req, res, next) => {
+  try {
+    const data = await postulacionesService.update(req.params.id, req.body);
+    res.status(200).json({ success: true, data });
+  } catch (err) { next(err); }
+};
+
+module.exports = { getAll, create, update };

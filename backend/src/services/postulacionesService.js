@@ -21,4 +21,24 @@ const create = async ({ id_candidato, id_vacante, estado_postulacion }) => {
   return result.rows[0];
 };
 
-module.exports = { getAll, create };
+const update = async (id, { estado_postulacion }) => {
+  const result = await pool.query(
+    `UPDATE postulaciones SET estado_postulacion = $1 WHERE id_postulacion = $2 RETURNING *`,
+    [estado_postulacion, id]
+  );
+  
+  if (result.rows.length === 0) throw { status: 404, message: "Postulación no encontrada" };
+
+  const postulacion = result.rows[0];
+
+  if (estado_postulacion === 'aceptado') {
+      await pool.query(
+        `UPDATE vacantes SET estado = 'cerrada' WHERE id_vacante = $1`,
+        [postulacion.id_vacante]
+      );
+  }
+
+  return postulacion;
+};
+
+module.exports = { getAll, create, update };

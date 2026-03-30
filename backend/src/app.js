@@ -8,7 +8,6 @@ const candidatosRoutes = require("./routes/candidatosRoutes");
 const vacantesRoutes = require("./routes/vacantesRoutes");
 const postulacionesRoutes = require("./routes/postulacionesRoutes");
 const evaluacionesRoutes = require("./routes/evaluacionesRoutes");
-const entrevistasRoutes = require("./routes/entrevistasRoutes");
 
 const app = express();
 
@@ -24,7 +23,6 @@ app.use("/api/candidatos", candidatosRoutes);
 app.use("/api/vacantes", vacantesRoutes);
 app.use("/api/postulaciones", postulacionesRoutes);
 app.use("/api/evaluaciones", evaluacionesRoutes);
-app.use("/api/entrevistas", entrevistasRoutes);
 
 app.use(errorHandler);
 

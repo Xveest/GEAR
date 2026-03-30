@@ -21,11 +21,13 @@ const create = async ({ titulo_puesto, departamento, descripcion, salario, estad
 };
 
 const update = async (id, data) => {
-  const { titulo_puesto, departamento, descripcion, salario, estado, id_reclutador } = data;
+  const { titulo_puesto, departamento, descripcion, salario, estado } = data;
+  
+  // No actualizamos el id_reclutador para no romper la llave y mantener a su creador original.
   const result = await pool.query(
     `UPDATE vacantes SET titulo_puesto=$1, departamento=$2, descripcion=$3, salario=$4,
-     estado=$5, id_reclutador=$6 WHERE id_vacante=$7 RETURNING *`,
-    [titulo_puesto, departamento, descripcion, salario, estado, id_reclutador, id]
+     estado=$5 WHERE id_vacante=$6 RETURNING *`,
+    [titulo_puesto, departamento, descripcion, salario, estado, id]
   );
   if (result.rows.length === 0) throw { status: 404, message: "Vacante no encontrada" };
   return result.rows[0];

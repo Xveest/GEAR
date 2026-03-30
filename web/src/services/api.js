@@ -2,7 +2,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 //cliente base 
 const getHeaders = () => {
-  const token = localStorage.getItem("gear_token");
+  const token = localStorage.getItem('gear_token');
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -10,12 +10,15 @@ const getHeaders = () => {
 };
 
 const handleResponse = async (res) => {
-  if (res.status === 401) {
-    localStorage.removeItem("gear_token");
+  if (res.status === 401 && !res.url.includes("login")) {
+    localStorage.removeItem('gear_token');
     window.location.href = "/login";
     return;
   }
-  if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || `Error HTTP: ${res.status}`);
+  }
   return res.status === 204 ? null : res.json();
 };
 
@@ -78,6 +81,7 @@ export const api = {
 export const authAPI = {
   login:    (data) => api.post("/auth/login",    data),
   register: (data) => api.post("/auth/register", data),
+  changePassword: (data) => api.put("/auth/change-password", data),
 };
 
 export const candidatosAPI = {
@@ -97,16 +101,13 @@ export const vacantesAPI = {
 };
 
 export const postulacionesAPI = {
-  getAll:  ()     => api.get("/postulaciones"),
-  create:  (data) => api.post("/postulaciones", data),
+  getAll:  ()           => api.get("/postulaciones"),
+  create:  (data)       => api.post("/postulaciones", data),
+  update:  (id, data)   => api.put(`/postulaciones/${id}`, data),
 };
 
 export const evaluacionesAPI = {
   getAll:  ()     => api.get("/evaluaciones"),
   create:  (data) => api.post("/evaluaciones", data),
-};
-
-export const entrevistasAPI = {
-  getAll:  ()     => api.get("/entrevistas"),
-  create:  (data) => api.post("/entrevistas", data),
+  getComparativo: (id_vacante) => api.get(`/evaluaciones/comparativo${id_vacante ? `?id_vacante=${id_vacante}` : ''}`),
 };

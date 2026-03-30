@@ -7,6 +7,14 @@ const getAll = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getComparativo = async (req, res, next) => {
+  try {
+    const id_vacante = req.query.id_vacante;
+    const data = await evaluacionesService.getComparativo(id_vacante);
+    res.status(200).json({ success: true, data });
+  } catch (err) { next(err); }
+};
+
 const create = async (req, res, next) => {
   try {
     const data = await evaluacionesService.create(req.body);
@@ -14,4 +22,4 @@ const create = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAll, create };
+module.exports = { getAll, getComparativo, create };

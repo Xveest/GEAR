@@ -3,22 +3,15 @@ import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const MOCK_VACANTES = [
-  { id: 1, titulo: "Gerente de Ventas Audi" },
-  { id: 2, titulo: "Director de Operaciones BMW" },
-  { id: 3, titulo: "Ingeniero de Planta Toyota" },
-  { id: 4, titulo: "Jefe de Finanzas Mercedes" },
-  { id: 5, titulo: "Analista de Logística Ford" },
-];
+import api from "../services/api";
 
 export default function RegisterScreen({ navigation }) {
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     nombre: "", apellido: "", email: "", telefono: "",
     password: "", confirmPassword: "",
-    puesto_actual: "", años_experiencia: "", vacante_id: null, vacante_titulo: "",
+    puesto_actual: "", años_experiencia: "", es_interno: false,
   });
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
@@ -31,41 +24,58 @@ export default function RegisterScreen({ navigation }) {
     setStep(2);
   };
 
-  const handleNextStep2 = () => {
-    if (!form.puesto_actual) { Alert.alert("Error", "Ingresa tu puesto actual"); return; }
-    setStep(3);
-  };
-
   const handleSubmit = async () => {
-    if (!form.vacante_id) { Alert.alert("Error", "Selecciona una vacante a la que postularte"); return; }
-    await AsyncStorage.setItem("gear_token", "mock_token");
-    await AsyncStorage.setItem("gear_user", JSON.stringify({
-      nombre: form.nombre, apellido: form.apellido,
-      email: form.email, rol: "candidato",
-    }));
-    Alert.alert(
-      "¡Postulacion enviada!",
-      `Bienvenido/a, ${form.nombre}. Tu postulacion para "${form.vacante_titulo}" fue registrada.`,
-      [{ text: "Continuar", onPress: () => navigation.replace("Main") }]
-    );
+    if (!form.puesto_actual || !form.años_experiencia) {
+      Alert.alert("Error", "Completa puesto actual y años de experiencia");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post("/auth/register", {
+        nombre: form.nombre,
+        apellido: form.apellido,
+        email: form.email.trim(),
+        password: form.password,
+        rol: "candidato",
+      });
+
+      await api.post("/candidatos", {
+        nombre: form.nombre,
+        apellido: form.apellido,
+        email: form.email.trim(),
+        telefono: form.telefono || "",
+        experiencia_anios: parseInt(form.años_experiencia.split("-")[0]) || parseInt(form.años_experiencia) || 0,
+        nivel_estudios: form.puesto_actual || "Desconocido",
+        cv_url: "",
+        estado: "activo",
+        es_interno: form.es_interno
+      });
+
+      Alert.alert(
+        "¡Registro Exitoso!",
+        `Bienvenido/a, ${form.nombre}. Ya puedes iniciar sesión.`,
+        [{ text: "Ir al Login", onPress: () => navigation.navigate("Login") }]
+      );
+    } catch (error) {
+      Alert.alert("Error", error.response?.data?.message || "Hubo un error en el registro");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView style={styles.container} contentContainerStyle={{ padding: 24 }}>
-        {/* Progress indicator — 3 pasos */}
+        {/* Progress indicator — 2 pasos */}
         <View style={styles.progress}>
           <View style={styles.progressRow}>
             <View style={[styles.dot, { backgroundColor: "#3b82f6" }]}><Text style={styles.dotText}>1</Text></View>
             <View style={[styles.line, { backgroundColor: step >= 2 ? "#3b82f6" : "#e2e8f0" }]} />
             <View style={[styles.dot, { backgroundColor: step >= 2 ? "#3b82f6" : "#e2e8f0" }]}><Text style={[styles.dotText, step < 2 && { color: "#94a3b8" }]}>2</Text></View>
-            <View style={[styles.line, { backgroundColor: step >= 3 ? "#3b82f6" : "#e2e8f0" }]} />
-            <View style={[styles.dot, { backgroundColor: step >= 3 ? "#3b82f6" : "#e2e8f0" }]}><Text style={[styles.dotText, step < 3 && { color: "#94a3b8" }]}>3</Text></View>
           </View>
           <View style={styles.progressLabels}>
             <Text style={[styles.progressLabel, { color: "#3b82f6" }]}>Datos personales</Text>
-            <Text style={[styles.progressLabel, { color: step >= 2 ? "#3b82f6" : "#94a3b8", textAlign: "center" }]}>Perfil</Text>
-            <Text style={[styles.progressLabel, { color: step >= 3 ? "#3b82f6" : "#94a3b8", textAlign: "right" }]}>Postulate</Text>
+            <Text style={[styles.progressLabel, { color: step >= 2 ? "#3b82f6" : "#94a3b8", textAlign: "right" }]}>Perfil profesional</Text>
           </View>
         </View>
 
@@ -138,66 +148,30 @@ export default function RegisterScreen({ navigation }) {
               ))}
             </View>
 
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
-              <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: "#f1f5f9" }]} onPress={() => setStep(1)}>
-                <Text style={[styles.btnText, { color: "#64748b" }]}>Atras</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, { flex: 2 }]} onPress={handleNextStep2}>
-                <Text style={styles.btnText}>Continuar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {step === 3 && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Postulate</Text>
-            <Text style={{ fontSize: 14, color: "#64748b", marginBottom: 20 }}>
-              Selecciona la vacante a la que deseas aplicar con tu nuevo perfil.
-            </Text>
-
-            <Text style={styles.label}>Vacante de interes *</Text>
-            {MOCK_VACANTES.map((v) => (
+            <Text style={[styles.label, { marginTop: 16 }]}>¿Eres talento interno? (Ya trabajas en GEAR)</Text>
+            <View style={styles.chips}>
               <TouchableOpacity
-                key={v.id}
-                style={[styles.vacanteOption, form.vacante_id === v.id && styles.vacanteOptionActive]}
-                onPress={() => { set("vacante_id", v.id); set("vacante_titulo", v.titulo); }}
+                style={[styles.chip, form.es_interno === true && styles.chipActive]}
+                onPress={() => set("es_interno", true)}
               >
-                <Text style={[styles.vacanteText, form.vacante_id === v.id && { color: "#3b82f6", fontWeight: "700" }]}>
-                  {v.titulo}
-                </Text>
-                {form.vacante_id === v.id && (
-                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#3b82f6", alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: "#fff", fontSize: 13, fontWeight: "800" }}>✓</Text>
-                  </View>
-                )}
+                <Text style={[styles.chipText, form.es_interno === true && styles.chipTextActive]}>Sí</Text>
               </TouchableOpacity>
-            ))}
-
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
-              <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: "#f1f5f9" }]} onPress={() => setStep(2)}>
-                <Text style={[styles.btnText, { color: "#64748b" }]}>Atras</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, { flex: 2, backgroundColor: "#1a2b4b" }]} onPress={handleSubmit}>
-                <Text style={styles.btnText}>Postularme</Text>
+              <TouchableOpacity
+                style={[styles.chip, form.es_interno === false && styles.chipActive]}
+                onPress={() => set("es_interno", false)}
+              >
+                <Text style={[styles.chipText, form.es_interno === false && styles.chipTextActive]}>No</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={{ marginTop: 14, alignItems: "center", padding: 10 }}
-              onPress={async () => {
-                await AsyncStorage.setItem("gear_token", "mock_token");
-                await AsyncStorage.setItem("gear_user", JSON.stringify({
-                  nombre: form.nombre, apellido: form.apellido,
-                  email: form.email, rol: "candidato",
-                }));
-                navigation.replace("Main");
-              }}
-            >
-              <Text style={{ color: "#94a3b8", fontSize: 14 }}>
-                Postularme después
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
+              <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: "#f1f5f9" }]} onPress={() => setStep(1)} disabled={loading}>
+                <Text style={[styles.btnText, { color: "#64748b" }]}>Atrás</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, { flex: 2 }]} onPress={handleSubmit} disabled={loading}>
+                <Text style={styles.btnText}>{loading ? "Cargando..." : "Finalizar"}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </ScrollView>

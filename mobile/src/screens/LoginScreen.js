@@ -1,49 +1,80 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, TouchableWithoutFeedback, Keyboard } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen({ navigation }) {
   const [form, setForm] = useState({ email: "", password: "" });
 
   const handleLogin = async () => {
-    await AsyncStorage.setItem("gear_token", "mock_token");
-    await AsyncStorage.setItem("gear_user", JSON.stringify({ nombre: "Admin", email: form.email, rol: "reclutador" }));
-    navigation.replace("Main");
+    if (!form.email || !form.password) {
+      Alert.alert("Error", "Por favor ingresa tu correo y contraseña.");
+      return;
+    }
+
+    try {
+     
+      const API_URL = "http://192.168.0.3:4000/api/auth/login";
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email.trim(), password: form.password })
+      });
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        Alert.alert("Error", json.message || json.error || "Credenciales inválidas");
+        return;
+      }
+
+      if (json.success && json.data && json.data.token) {
+        await AsyncStorage.setItem("gear_token", json.data.token);
+        await AsyncStorage.setItem("gear_user", JSON.stringify(json.data.usuario));
+        navigation.replace("Main");
+      } else {
+        Alert.alert("Error", "Respuesta inesperada del servidor");
+      }
+    } catch (error) {
+      Alert.alert("Error", "No se pudo conectar con el servidor.");
+      console.error("Login Error:", error);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>GEAR</Text>
-        <Text style={styles.subtitle}>Gestión Estratégica de Alto Rendimiento</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.logo}>GEAR</Text>
+          <Text style={styles.subtitle}>Gestión Estratégica de Alto Rendimiento</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.title}>Iniciar Sesión</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Correo electrónico"
+            placeholderTextColor="#94a3b8"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={form.email}
+            onChangeText={(v) => setForm({ ...form, email: v })}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Contraseña"
+            placeholderTextColor="#94a3b8"
+            secureTextEntry
+            value={form.password}
+            onChangeText={(v) => setForm({ ...form, password: v })}
+          />
+          <TouchableOpacity style={styles.btn} onPress={handleLogin}>
+            <Text style={styles.btnText}>Entrar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.registerBtn} onPress={() => navigation.navigate("Register")}>
+            <Text style={styles.registerText}>¿No tienes cuenta? <Text style={{ color: "#3b82f6", fontWeight: "700" }}>Regístrate</Text></Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.title}>Iniciar Sesión</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Correo electrónico"
-          placeholderTextColor="#94a3b8"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={form.email}
-          onChangeText={(v) => setForm({ ...form, email: v })}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          placeholderTextColor="#94a3b8"
-          secureTextEntry
-          value={form.password}
-          onChangeText={(v) => setForm({ ...form, password: v })}
-        />
-        <TouchableOpacity style={styles.btn} onPress={handleLogin}>
-          <Text style={styles.btnText}>Entrar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.registerBtn} onPress={() => navigation.navigate("Register")}>
-          <Text style={styles.registerText}>¿No tienes cuenta? <Text style={{ color: "#3b82f6", fontWeight: "700" }}>Regístrate</Text></Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </TouchableWithoutFeedback>
   );
 }
 

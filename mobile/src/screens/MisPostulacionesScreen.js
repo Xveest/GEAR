@@ -1,172 +1,155 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
-
-const MOCK_POSTULACIONES = [
-  {
-    id: 1,
-    titulo_puesto: "Gerente de Ventas",
-    empresa: "GEAR Automotriz",
-    departamento: "Ventas",
-    fecha_postulacion: "2026-03-01",
-    estado: "En revision",
-    nota: "Tu CV fue recibido y está siendo evaluado por el equipo de RH.",
-  },
-  {
-    id: 2,
-    titulo_puesto: "Director de Operaciones",
-    empresa: "GEAR Automotriz",
-    departamento: "Operaciones",
-    fecha_postulacion: "2026-02-20",
-    estado: "Entrevista agendada",
-    nota: "Tienes una entrevista programada para el 15 de marzo a las 10:00 AM.",
-  },
-  {
-    id: 3,
-    titulo_puesto: "Ingeniero de Calidad",
-    empresa: "GEAR Automotriz",
-    departamento: "Ingeniería",
-    fecha_postulacion: "2026-02-10",
-    estado: "Rechazada",
-    nota: "Agradecemos tu interés. El perfil no corresponde al requerido en este momento.",
-  },
-  {
-    id: 4,
-    titulo_puesto: "Analista de RH",
-    empresa: "GEAR Automotriz",
-    departamento: "Recursos Humanos",
-    fecha_postulacion: "2026-01-28",
-    estado: "Aceptada",
-    nota: "Felicidades, fuiste seleccionado. El equipo de RH se pondrá en contacto contigo.",
-  },
-];
-
-const ESTADO_CONFIG = {
-  "En revision":          { bg: "#eff6ff", text: "#1d4ed8", dot: "#3b82f6",  border: "#bfdbfe" },
-  "Entrevista agendada":  { bg: "#fefce8", text: "#92400e", dot: "#f59e0b",  border: "#fde68a" },
-  "Rechazada":            { bg: "#fff1f2", text: "#be123c", dot: "#f43f5e",  border: "#fecdd3" },
-  "Aceptada":             { bg: "#f0fdf4", text: "#15803d", dot: "#22c55e",  border: "#bbf7d0" },
-};
-
-function EstadoBadge({ estado }) {
-  const cfg = ESTADO_CONFIG[estado] || { bg: "#f1f5f9", text: "#475569", dot: "#94a3b8", border: "#e2e8f0" };
-  return (
-    <View style={[styles.badge, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
-      <View style={[styles.badgeDot, { backgroundColor: cfg.dot }]} />
-      <Text style={[styles.badgeText, { color: cfg.text }]}>{estado}</Text>
-    </View>
-  );
-}
+import React, { useState, useCallback } from "react";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import api from "../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function MisPostulacionesScreen() {
-  const formatDate = (iso) => {
-    const [y, m, d] = iso.split("-");
-    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    return `${d} ${meses[parseInt(m) - 1]} ${y}`;
+  const [postulaciones, setPostulaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      cargarPostulaciones();
+    }, [])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await cargarPostulaciones();
+    setRefreshing(false);
+  }, []);
+
+  const cargarPostulaciones = async () => {
+    setLoading(true);
+    try {
+      // 1. Obtener ID del usuario logueado
+      const userStr = await AsyncStorage.getItem("gear_user");
+      if (!userStr) {
+        Alert.alert("Error", "No estás logueado.");
+        return;
+      }
+      const user = JSON.parse(userStr);
+
+      // 2. Buscar si el usuario tiene un perfil de candidato (id_candidato)
+      const candRes = await api.get("/candidatos");
+      const miCandidato = candRes.data.find(c => c.email === user.email);
+
+      if (!miCandidato) {
+        setPostulaciones([]); // No es candidato o no ha llenado su perfil
+        return;
+      }
+
+      // 3. Obtener todas las postulaciones y filtrar
+      const postRes = await api.get("/postulaciones");
+      
+      // 4. Obtener vacantes para cruzar nombres
+      const vacantesRes = await api.get("/vacantes");
+
+      // Enriquecer datos
+      const misPostulacionesList = postRes.data
+        .filter(p => p.id_candidato === miCandidato.id_candidato)
+        .map(p => {
+          const vacanteRelacionada = vacantesRes.data.find(v => v.id_vacante === p.id_vacante);
+          return {
+            ...p,
+            titulo_puesto: vacanteRelacionada ? vacanteRelacionada.titulo_puesto : "Vacante Desconocida"
+          };
+        });
+
+      setPostulaciones(misPostulacionesList);
+    } catch (error) {
+      console.error("Error cargando postulaciones:", error);
+      Alert.alert("Error", "No se pudieron cargar tus postulaciones.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.puesto}>{item.titulo_puesto}</Text>
-          <Text style={styles.depto}>{item.departamento} — {item.empresa}</Text>
+  const getStatusColor = (estado) => {
+    switch (estado?.toLowerCase()) {
+      case "pendiente": return { bg: "#fef9c3", text: "#b45309" }; // amarillo
+      case "revisado": return { bg: "#dbeafe", text: "#1d4ed8" }; // azul
+      case "aceptado": return { bg: "#dcfce7", text: "#15803d" }; // verde
+      case "rechazado": return { bg: "#fee2e2", text: "#b91c1c" }; // rojo
+      default: return { bg: "#f1f5f9", text: "#475569" };
+    }
+  };
+
+  const renderPostulacion = ({ item }) => {
+    const estadoReal = item.estado_postulacion || item.estado || "pendiente";
+    const statusStyle = getStatusColor(estadoReal);
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.positionText}>{item.titulo_puesto}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+            <Text style={[styles.statusText, { color: statusStyle.text }]}>
+              {estadoReal.charAt(0).toUpperCase() + estadoReal.slice(1)}
+            </Text>
+          </View>
         </View>
-        <EstadoBadge estado={item.estado} />
+        <View style={styles.cardBody}>
+          <Text style={styles.dateLabel}>Aplicado el:</Text>
+          <Text style={styles.dateText}>
+            {new Date(item.fecha_postulacion).toLocaleDateString("es-MX", {
+              year: "numeric", month: "long", day: "numeric"
+            })}
+          </Text>
+        </View>
       </View>
+    );
+  };
 
-      {item.nota ? (
-        <View style={styles.notaBox}>
-          <Text style={styles.notaText}>{item.nota}</Text>
-        </View>
-      ) : null}
-
-      <Text style={styles.fecha}>Postulado el {formatDate(item.fecha_postulacion)}</Text>
-    </View>
-  );
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={MOCK_POSTULACIONES}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderItem}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        ListHeaderComponent={() => (
-          <View style={styles.summary}>
-            <Text style={styles.summaryTotal}>{MOCK_POSTULACIONES.length}</Text>
-            <Text style={styles.summaryLabel}>postulaciones en total</Text>
-            <View style={styles.summaryPills}>
-              {[
-                { label: "En revision",         color: "#3b82f6" },
-                { label: "Entrevista agendada",  color: "#f59e0b" },
-                { label: "Aceptada",             color: "#22c55e" },
-                { label: "Rechazada",            color: "#f43f5e" },
-              ].map(({ label, color }) => {
-                const count = MOCK_POSTULACIONES.filter((p) => p.estado === label).length;
-                if (!count) return null;
-                return (
-                  <View key={label} style={[styles.pill, { borderColor: color }]}>
-                    <View style={[styles.pillDot, { backgroundColor: color }]} />
-                    <Text style={[styles.pillText, { color }]}>{count} {label}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-      />
+      {postulaciones.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>No hay postulaciones</Text>
+          <Text style={styles.emptyText}>Aún no te has postulado a ninguna vacante.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={postulaciones}
+          keyExtractor={(item) => item.id_postulacion.toString()}
+          renderItem={renderPostulacion}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#3b82f6"]}
+            />
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc" },
-
-  summary: {
-    backgroundColor: "#1a2b4b",
-    borderRadius: 14,
-    padding: 20,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  summaryTotal: { fontSize: 42, fontWeight: "800", color: "#fff", lineHeight: 48 },
-  summaryLabel: { fontSize: 13, color: "rgba(255,255,255,.5)", marginBottom: 14 },
-  summaryPills: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
-  pill: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    borderWidth: 1, borderRadius: 999,
-    paddingHorizontal: 12, paddingVertical: 4,
-  },
-  pillDot:  { width: 6, height: 6, borderRadius: 3 },
-  pillText: { fontSize: 11, fontWeight: "600" },
-
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
-  cardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
-  puesto:     { fontSize: 15, fontWeight: "700", color: "#0f172a", marginBottom: 2 },
-  depto:      { fontSize: 12, color: "#94a3b8" },
-
-  badge: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    borderWidth: 1, borderRadius: 999,
-    paddingHorizontal: 10, paddingVertical: 4,
-    alignSelf: "flex-start",
-  },
-  badgeDot:  { width: 6, height: 6, borderRadius: 3 },
-  badgeText: { fontSize: 11, fontWeight: "700" },
-
-  notaBox: {
-    backgroundColor: "#f8fafc",
-    borderLeftWidth: 3, borderLeftColor: "#e2e8f0",
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 10,
-  },
-  notaText: { fontSize: 13, color: "#475569", lineHeight: 18 },
-
-  fecha: { fontSize: 11, color: "#cbd5e1", textAlign: "right" },
+  listContainer: { padding: 16, paddingBottom: 40 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  card: { backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, borderWidth: 1, borderColor: "#f1f5f9" },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
+  positionText: { fontSize: 18, fontWeight: "700", color: "#1e293b", flex: 1, marginRight: 12 },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  statusText: { fontSize: 12, fontWeight: "700" },
+  cardBody: { flexDirection: "row", alignItems: "center" },
+  dateLabel: { fontSize: 13, color: "#64748b", marginRight: 6 },
+  dateText: { fontSize: 13, color: "#334155", fontWeight: "500" },
+  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+  emptyTitle: { fontSize: 20, fontWeight: "bold", color: "#1e293b", marginBottom: 8 },
+  emptyText: { fontSize: 15, color: "#64748b", textAlign: "center" }
 });

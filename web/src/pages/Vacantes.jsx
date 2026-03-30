@@ -1,43 +1,77 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Table from "../components/Table";
+import { vacantesAPI } from "../services/api";
 
-const MOCK = [
-  { id_vacante: 1, titulo_puesto: "Gerente de Ventas", departamento: "Ventas", descripcion: "Gestión del equipo comercial.", salario: 45000, estado: "activa", id_reclutador: 1 },
-  { id_vacante: 2, titulo_puesto: "Director de Operaciones", departamento: "Operaciones", descripcion: "Supervisión de planta automotriz.", salario: 75000, estado: "activa", id_reclutador: 1 },
-  { id_vacante: 3, titulo_puesto: "Ingeniero de Calidad", departamento: "Ingeniería", descripcion: "Control y aseguramiento de calidad.", salario: 38000, estado: "activa", id_reclutador: 2 },
-  { id_vacante: 4, titulo_puesto: "Analista de RH", departamento: "Recursos Humanos", descripcion: "Gestión de nómina y contratación.", salario: 28000, estado: "pausada", id_reclutador: 1 },
-  { id_vacante: 5, titulo_puesto: "Técnico de Mantenimiento", departamento: "Operaciones", descripcion: "Mantenimiento de maquinaria industrial.", salario: 22000, estado: "cerrada", id_reclutador: 2 },
-];
-
-const EMPTY = { titulo_puesto: "", departamento: "", descripcion: "", salario: "", estado: "activa", id_reclutador: "" };
+const EMPTY = { titulo_puesto: "", departamento: "", descripcion: "", salario: "", estado: "activa" };
 
 const getBadge = (estado) => ({ activa: "badge-green", pausada: "badge-yellow", cerrada: "badge-red" }[estado] || "badge-gray");
 
 export default function Vacantes() {
-  const [vacantes, setVacantes] = useState(MOCK);
+  const [vacantes, setVacantes] = useState([]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const storedUser = JSON.parse(localStorage.getItem("gear_user") || "{}");
+  const isRHOrAdmin = storedUser.rol === "recursos_humanos" || storedUser.rol === "admin";
+
+  const fetchVacantes = async () => {
+    try {
+      setError("");
+      const response = await vacantesAPI.getAll();
+      setVacantes(response?.data || []);
+    } catch (err) {
+      setError(err.message || "No se pudieron cargar las vacantes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVacantes();
+  }, []);
 
   const openCreate = () => { setEditing(null); setForm(EMPTY); setModal(true); };
-  const openEdit = (v) => { setEditing(v.id_vacante); setForm(v); setModal(true); };
+  const openEdit = (v) => { setEditing(v.id_vacante); setForm({ ...EMPTY, ...v }); setModal(true); };
   const close = () => setModal(false);
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editing) {
-      setVacantes(vacantes.map((v) => v.id_vacante === editing ? { ...form, id_vacante: editing } : v));
-    } else {
-      setVacantes([...vacantes, { ...form, id_vacante: Date.now() }]);
+
+    const payload = {
+      ...form,
+      salario: form.salario === "" ? null : Number(form.salario),
+    };
+
+    if (!editing) {
+      payload.id_reclutador = storedUser.id || 1;
     }
-    close();
+
+    try {
+      if (editing) {
+        await vacantesAPI.update(editing, payload);
+      } else {
+        await vacantesAPI.create(payload);
+      }
+      await fetchVacantes();
+      close();
+    } catch (err) {
+      window.alert(err.message || "No se pudo guardar la vacante");
+    }
   };
 
-  const handleDelete = (id) => {
-    if (!window.confirm("¿Eliminar vacante?")) return;
-    setVacantes(vacantes.filter((v) => v.id_vacante !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Eliminar vacante?")) return;
+    try {
+      await vacantesAPI.remove(id);
+      await fetchVacantes();
+    } catch (err) {
+      window.alert(err.message || "No se pudo eliminar la vacante");
+    }
   };
 
   const columns = ["Puesto", "Departamento", "Salario", "Estado", "Acciones"];
@@ -46,11 +80,17 @@ export default function Vacantes() {
     <>
       <Navbar title="Vacantes" />
       <div style={{ padding: "1.5rem 0" }}>
-          <div className="page-header">
-            <h2>Gestión de Vacantes</h2>
+        <div className="page-header">
+          <h2>Gestion de Vacantes</h2>
+          {isRHOrAdmin && (
             <button className="btn btn-primary" onClick={openCreate}>+ Nueva Vacante</button>
-          </div>
-          <div className="card">
+          )}
+        </div>
+        {error && <div className="login-error" style={{ marginBottom: "1rem" }}>{error}</div>}
+        <div className="card">
+          {loading ? (
+            <div className="loading">Cargando vacantes...</div>
+          ) : (
             <Table
               columns={columns}
               rows={vacantes}
@@ -58,16 +98,23 @@ export default function Vacantes() {
                 <tr key={v.id_vacante}>
                   <td><strong>{v.titulo_puesto}</strong></td>
                   <td>{v.departamento}</td>
-                  <td>${Number(v.salario).toLocaleString()}</td>
+                  <td>${Number(v.salario || 0).toLocaleString()}</td>
                   <td><span className={`badge ${getBadge(v.estado)}`}>{v.estado}</span></td>
                   <td style={{ display: "flex", gap: ".5rem" }}>
-                    <button className="btn btn-outline btn-sm" onClick={() => openEdit(v)}>Editar</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(v.id_vacante)}>Eliminar</button>
+                    {isRHOrAdmin ? (
+                      <>
+                        <button className="btn btn-outline btn-sm" onClick={() => openEdit(v)}>Editar</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(v.id_vacante)}>Eliminar</button>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: "0.85rem", color: "#666" }}>Solo lectura</span>
+                    )}
                   </td>
                 </tr>
               )}
             />
-          </div>
+          )}
+        </div>
       </div>
 
       {modal && (
@@ -75,22 +122,19 @@ export default function Vacantes() {
           <div className="modal">
             <h2>{editing ? "Editar Vacante" : "Nueva Vacante"}</h2>
             <form onSubmit={handleSubmit}>
-              <div className="form-group"><label>Título del puesto</label><input name="titulo_puesto" value={form.titulo_puesto} onChange={handleChange} required /></div>
+              <div className="form-group"><label>Titulo del puesto</label><input name="titulo_puesto" value={form.titulo_puesto} onChange={handleChange} required /></div>
               <div className="form-row">
                 <div className="form-group"><label>Departamento</label><input name="departamento" value={form.departamento} onChange={handleChange} /></div>
-                <div className="form-group"><label>Salario</label><input name="salario" type="number" value={form.salario} onChange={handleChange} /></div>
+                <div className="form-group"><label>Salario</label><input name="salario" type="number" value={form.salario ?? ""} onChange={handleChange} /></div>
               </div>
-              <div className="form-group"><label>Descripción</label><textarea name="descripcion" rows={3} value={form.descripcion} onChange={handleChange} /></div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Estado</label>
-                  <select name="estado" value={form.estado} onChange={handleChange}>
-                    <option value="activa">Activa</option>
-                    <option value="pausada">Pausada</option>
-                    <option value="cerrada">Cerrada</option>
-                  </select>
-                </div>
-                <div className="form-group"><label>ID Reclutador</label><input name="id_reclutador" type="number" value={form.id_reclutador} onChange={handleChange} /></div>
+              <div className="form-group"><label>Descripcion</label><textarea name="descripcion" rows={3} value={form.descripcion} onChange={handleChange} /></div>
+              <div className="form-group">
+                <label>Estado</label>
+                <select name="estado" value={form.estado} onChange={handleChange}>
+                  <option value="activa">Activa</option>
+                  <option value="pausada">Pausada</option>
+                  <option value="cerrada">Cerrada</option>
+                </select>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={close}>Cancelar</button>
@@ -103,3 +147,4 @@ export default function Vacantes() {
     </>
   );
 }
+
