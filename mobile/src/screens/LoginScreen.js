@@ -13,7 +13,7 @@ export default function LoginScreen({ navigation }) {
 
     try {
      
-      const API_URL = "http://192.168.0.3:4000/api/auth/login";
+      const API_URL = "https://gear-backend-n5v3.onrender.com/api/auth/login";
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

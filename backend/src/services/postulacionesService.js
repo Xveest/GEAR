@@ -13,6 +13,16 @@ const getAll = async () => {
 };
 
 const create = async ({ id_candidato, id_vacante, estado_postulacion }) => {
+  // Verificar si ya existe una postulación para este candidato en esta vacante
+  const checkResult = await pool.query(
+    `SELECT id_postulacion FROM postulaciones WHERE id_candidato = $1 AND id_vacante = $2`,
+    [id_candidato, id_vacante]
+  );
+
+  if (checkResult.rows.length > 0) {
+    throw { status: 400, message: "Ya te has postulado a esta vacante anteriormente." };
+  }
+
   const result = await pool.query(
     `INSERT INTO postulaciones (id_candidato, id_vacante, estado_postulacion)
      VALUES ($1,$2,$3) RETURNING *`,
